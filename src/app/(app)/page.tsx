@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Leaf } from "lucide-react";
+import { BloomLogo } from "@/components/bloom-logo";
 import { SakuraCanvas } from "@/components/sakura/sakura-canvas";
 import { buttonVariants } from "@/components/ui/button";
 import { getHabitsDashboard } from "@/lib/habits";
@@ -12,13 +14,16 @@ export default async function HomePage() {
       <div className="pointer-events-none absolute -left-20 top-24 h-64 w-64 animate-orb rounded-full bg-rose-200/30 blur-3xl" />
       <div className="pointer-events-none absolute right-10 top-10 h-72 w-72 animate-orb-delayed rounded-full bg-amber-100/40 blur-3xl" />
 
-      <SakuraCanvas score={consistency} />
+      <SakuraCanvas score={consistency} className="absolute inset-0" />
 
       <div className="relative z-10 flex min-h-screen flex-col justify-between px-6 pb-10 pt-10 md:px-12 md:pt-16">
         <div className="max-w-xl animate-fade-up space-y-5">
-          <p className="font-[family-name:var(--font-display)] text-6xl leading-none tracking-tight text-stone-900 md:text-8xl">
-            Bloom
-          </p>
+          <div className="flex items-center gap-4">
+            <BloomLogo size={56} priority className="rounded-2xl" />
+            <p className="font-[family-name:var(--font-display)] text-6xl leading-none tracking-tight text-stone-900 md:text-8xl">
+              Bloom
+            </p>
+          </div>
           <p className="max-w-md animate-fade-up-delayed text-lg text-stone-600 md:text-xl">
             Your streaks, growing.
           </p>
@@ -28,9 +33,10 @@ export default async function HomePage() {
               className={buttonVariants({
                 size: "lg",
                 className:
-                  "rounded-full bg-gradient-to-r from-rose-500/90 to-rose-400/90 px-6 text-white shadow-[0_12px_30px_-14px_rgba(190,80,100,0.7)] transition-transform duration-300 hover:scale-[1.03] hover:shadow-[0_16px_34px_-12px_rgba(190,80,100,0.75)]",
+                  "inline-flex gap-2 rounded-full bg-gradient-to-r from-rose-500/90 to-rose-400/90 px-6 text-white shadow-[0_12px_30px_-14px_rgba(190,80,100,0.7)] transition-transform duration-300 hover:scale-[1.03] hover:shadow-[0_16px_34px_-12px_rgba(190,80,100,0.75)]",
               })}
             >
+              <Leaf className="size-4" />
               Open habits
             </Link>
             <p className="text-sm text-stone-500">
@@ -38,15 +44,6 @@ export default async function HomePage() {
             </p>
           </div>
         </div>
-
-        <aside className="grid max-w-sm animate-fade-up-slow gap-3 self-end">
-          <div className="rounded-2xl border border-rose-200/40 bg-gradient-to-br from-white/45 to-rose-50/30 px-4 py-3 text-sm text-stone-500 shadow-[0_10px_30px_-20px_rgba(80,40,40,0.35)] backdrop-blur-sm transition-transform duration-500 hover:-translate-y-0.5">
-            Widgets soon
-          </div>
-          <div className="rounded-2xl border border-dashed border-stone-300/60 bg-white/15 px-4 py-6 text-sm text-stone-400 backdrop-blur-sm">
-            Reserved slot
-          </div>
-        </aside>
       </div>
     </main>
   );

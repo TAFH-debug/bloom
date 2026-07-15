@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   boolean,
   date,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -14,6 +15,9 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  statusPreset: text("status_preset"),
+  statusNote: text("status_note"),
+  statusUpdatedAt: timestamp("status_updated_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -65,6 +69,9 @@ export const habits = pgTable("habits", {
     .references(() => user.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   color: text("color"),
+  frequency: text("frequency").notNull().default("daily"),
+  timesPerPeriod: integer("times_per_period").notNull().default(1),
+  customEveryDays: integer("custom_every_days"),
   archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -80,22 +87,84 @@ export const habitCompletions = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     completedOn: date("completed_on", { mode: "string" }).notNull(),
+    slot: integer("slot").notNull().default(0),
   },
   (table) => [
-    uniqueIndex("habit_completions_habit_day_idx").on(
+    uniqueIndex("habit_completions_habit_day_slot_idx").on(
       table.habitId,
       table.completedOn,
+      table.slot,
     ),
   ],
 );
 
-export const userRelations = relations(user, ({ many }) => ({
+export const gardenMembers = pgTable(
+  "garden_members",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("garden_members_owner_member_idx").on(
+      table.ownerId,
+      table.memberId,
+    ),
+  ],
+);
+
+export const gardenInvitations = pgTable(
+  "garden_invitations",
+  {
+    id: text("id").primaryKey(),
+    fromUserId: text("from_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    toUserId: text("to_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    respondedAt: timestamp("responded_at"),
+  },
+  (table) => [
+    uniqueIndex("garden_invitations_from_to_pending_idx").on(
+      table.fromUserId,
+      table.toUserId,
+    ),
+  ],
+);
+
+export const userPreferences = pgTable("user_preferences", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  reminderWindowStart: integer("reminder_window_start").notNull().default(9),
+  reminderWindowEnd: integer("reminder_window_end").notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
   accounts: many(account),
   habits: many(habits),
   habitCompletions: many(habitCompletions),
+  gardenOwned: many(gardenMembers, { relationName: "garden_owner" }),
+  gardenMemberships: many(gardenMembers, { relationName: "garden_member" }),
+  invitationsSent: many(gardenInvitations, { relationName: "invite_from" }),
+  invitationsReceived: many(gardenInvitations, {
+    relationName: "invite_to",
+  }),
+  preferences: one(userPreferences, {
+    fields: [user.id],
+    references: [userPreferences.userId],
+  }),
 }));
-
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, {
     fields: [session.userId],
@@ -127,6 +196,45 @@ export const habitCompletionsRelations = relations(
     }),
     user: one(user, {
       fields: [habitCompletions.userId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const gardenMembersRelations = relations(gardenMembers, ({ one }) => ({
+  owner: one(user, {
+    fields: [gardenMembers.ownerId],
+    references: [user.id],
+    relationName: "garden_owner",
+  }),
+  member: one(user, {
+    fields: [gardenMembers.memberId],
+    references: [user.id],
+    relationName: "garden_member",
+  }),
+}));
+
+export const gardenInvitationsRelations = relations(
+  gardenInvitations,
+  ({ one }) => ({
+    fromUser: one(user, {
+      fields: [gardenInvitations.fromUserId],
+      references: [user.id],
+      relationName: "invite_from",
+    }),
+    toUser: one(user, {
+      fields: [gardenInvitations.toUserId],
+      references: [user.id],
+      relationName: "invite_to",
+    }),
+  }),
+);
+
+export const userPreferencesRelations = relations(
+  userPreferences,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [userPreferences.userId],
       references: [user.id],
     }),
   }),

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
+import { DesktopShell } from "@/components/desktop/desktop-shell";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -16,6 +17,10 @@ const sans = Manrope({
 export const metadata: Metadata = {
   title: "Bloom",
   description: "A minimal habit tracker with a growing sakura tree",
+  icons: {
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    apple: [{ url: "/favicon.png" }],
+  },
 };
 
 export default function RootLayout({
@@ -29,8 +34,10 @@ export default function RootLayout({
       className={`${display.variable} ${sans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        {children}
-        <Toaster />
+        <DesktopShell>
+          {children}
+          <Toaster />
+        </DesktopShell>
       </body>
     </html>
   );

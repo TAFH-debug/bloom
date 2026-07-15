@@ -24,6 +24,11 @@ Required variables:
 - `DATABASE_URL` — Neon connection string
 - `BETTER_AUTH_SECRET` — long random secret
 - `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL` — usually `http://localhost:3000`
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional, for Google sign-in
+
+For Google OAuth, create a Web client in Google Cloud Console and set the authorized redirect URI to:
+
+`http://localhost:3000/api/auth/callback/google`
 
 2. Install and migrate:
 
@@ -58,7 +63,8 @@ Production desktop packaging still depends on a hosted Next.js URL (or a later s
 
 | Script | Purpose |
 | --- | --- |
-| `npm run dev` | Next.js web |
+| `npm run dev` | Web + WebSocket server (custom) |
+| `npm run start` | Production server with WebSockets |
 | `npm run build` | Production web build |
 | `npm run db:generate` | Create Drizzle migrations |
 | `npm run db:migrate` | Apply migrations |

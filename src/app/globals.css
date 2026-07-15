@@ -129,6 +129,92 @@
   }
 }
 
+/* Tauri borderless + rounded shell */
+html.tauri-desktop,
+html.tauri-desktop body {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+html.tauri-desktop body {
+  height: 100%;
+}
+
+.desktop-shell {
+  border-radius: 12px;
+  overflow: hidden;
+  background: oklch(0.985 0.01 50);
+  box-shadow: 0 0 0 1px rgba(120, 80, 70, 0.12);
+  height: 100vh;
+}
+
+html.tauri-desktop .app-chrome {
+  top: 2.25rem;
+  bottom: 0;
+  height: auto;
+}
+
+html.tauri-desktop .app-frame {
+  min-height: 0;
+  height: 100%;
+}
+
+html.tauri-desktop .app-main {
+  min-height: 0;
+}
+
+/* Soft scrollbars matching Bloom UI */
+.scrollbar-bloom,
+html,
+body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(190, 120, 130, 0.45) transparent;
+}
+
+.scrollbar-bloom::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-bloom::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-bloom::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(244, 180, 196, 0.75),
+    rgba(232, 180, 140, 0.65)
+  );
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.scrollbar-bloom::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(232, 140, 160, 0.9),
+    rgba(220, 160, 120, 0.8)
+  );
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.scrollbar-bloom::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Keep main column scroll under the fixed rails without a dead white gutter */
+.app-main {
+  background: transparent;
+}
+
 @keyframes gradient-shift {
   0%,
   100% {
@@ -208,4 +294,58 @@
 @utility animate-grow-y {
   animation: grow-y 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: center;
+}
+
+@keyframes check-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.22);
+  }
+  70% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes check-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-burst {
+  0% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(
+        calc(-50% + var(--tx)),
+        calc(-50% + var(--ty))
+      )
+      scale(0.35)
+      rotate(var(--rot));
+    opacity: 0;
+  }
+}
+
+@utility animate-check-pop {
+  animation: check-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility animate-check-ring {
+  animation: check-ring 0.45s ease-out forwards;
+}
+
+@utility animate-confetti-burst {
+  animation: confetti-burst 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

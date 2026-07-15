@@ -8,6 +8,34 @@
       "when": 1784066434354,
       "tag": "0000_harsh_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784072496845,
+      "tag": "0001_lyrical_vapor",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784075130418,
+      "tag": "0002_talented_stick",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784076824112,
+      "tag": "0003_oval_leopardon",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784077514814,
+      "tag": "0004_bouncy_brood",
+      "breakpoints": true
     }
   ]
 }

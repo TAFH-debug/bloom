@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { cn } from "@/lib/utils";
 
 const SakuraScene = dynamic(
   () =>
@@ -13,6 +14,16 @@ const SakuraScene = dynamic(
   },
 );
 
-export function SakuraCanvas({ score }: { score: number }) {
-  return <SakuraScene score={score} />;
+export function SakuraCanvas({
+  score,
+  className,
+}: {
+  score: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn("relative", className)}>
+      <SakuraScene score={score} />
+    </div>
+  );
 }
