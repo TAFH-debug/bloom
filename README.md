@@ -1,79 +1,55 @@
 # Bloom
 
-Minimal productivity app with a growing 3D sakura tree driven by habit consistency.
+Minimal habit tracker with a growing sakura tree. Monorepo:
 
-## Stack
+| App | Path | Role |
+| --- | --- | --- |
+| Desktop | `apps/desktop` | Tauri + Vite React SPA |
+| API | `apps/api` | FastAPI + Neon Postgres |
+| Website | `apps/web` | Marketing Next.js site |
 
-- Next.js (App Router) + Server Actions
-- PostgreSQL on Neon + Drizzle ORM
-- Better Auth (email / password)
-- shadcn/ui
-- Three.js via React Three Fiber
-- Tauri 2 desktop shell
+## Prerequisites
+
+- Node 20+
+- Python 3.11+
+- Rust (for Tauri)
+- Neon `DATABASE_URL`
 
 ## Setup
 
-1. Copy env template and fill values:
-
 ```bash
-cp .env.example .env.local
-```
-
-Required variables:
-
-- `DATABASE_URL` — Neon connection string
-- `BETTER_AUTH_SECRET` — long random secret
-- `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL` — usually `http://localhost:3000`
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional, for Google sign-in
-
-For Google OAuth, create a Web client in Google Cloud Console and set the authorized redirect URI to:
-
-`http://localhost:3000/api/auth/callback/google`
-
-2. Install and migrate:
-
-```bash
+# JS workspaces
 npm install
-npm run db:migrate
+
+# API
+cd apps/api
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+pip install -e .
+cp .env.example .env   # set DATABASE_URL + SECRET_KEY
 ```
 
-3. Run the web app:
+Copy `DATABASE_URL` from your Neon project into `apps/api/.env`.
+
+Desktop API URL (default):
 
 ```bash
-npm run dev
+# apps/desktop/.env
+VITE_API_URL=http://localhost:8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+## Dev
 
-## Desktop (Tauri)
-
-Requires [Rust](https://www.rust-lang.org/tools/install) and Tauri [prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
-
-On Windows you also need **Visual Studio Build Tools** with the “Desktop development with C++” workload (`link.exe`), or `tauri:dev` will fail even if Rust is installed.
+Three processes:
 
 ```bash
-npm run tauri:dev
+npm run dev:api        # FastAPI :8000
+npm run dev:desktop    # Vite :1420 + Tauri window
+npm run dev:web        # Marketing site
 ```
 
-This starts Next.js, then opens Bloom in a native window pointed at `http://localhost:3000`.
+The desktop shell embeds the Vite UI (`frontendDist` / `devUrl`). It does **not** load Next.js on `:3000`.
 
-Production desktop packaging still depends on a hosted Next.js URL (or a later static export). For MVP, use `tauri:dev` against the local web server.
+## Legacy
 
-## Scripts
-
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | Web + WebSocket server (custom) |
-| `npm run start` | Production server with WebSockets |
-| `npm run build` | Production web build |
-| `npm run db:generate` | Create Drizzle migrations |
-| `npm run db:migrate` | Apply migrations |
-| `npm run tauri:dev` | Desktop shell + Next.js |
-| `npm run tauri:build` | Native installer (needs production frontend strategy) |
-
-## MVP features
-
-- Home screen with sakura bloom level from 14-day rolling consistency
-- Habit tracker: create, rename, archive, toggle today, 7-day dots
-- Auth: sign up / sign in
-- Widget placeholders reserved on the home screen
+The previous root Next.js + Better Auth app under `src/` / `server.ts` is superseded by `apps/desktop` + `apps/api`. Drizzle migrations in `drizzle/` remain the historical schema source; FastAPI maps the same Neon tables.

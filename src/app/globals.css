@@ -213,6 +213,14 @@ body {
 /* Keep main column scroll under the fixed rails without a dead white gutter */
 .app-main {
   background: transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-main::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @keyframes gradient-shift {
@@ -327,14 +335,67 @@ body {
     transform: translate(-50%, -50%) scale(1) rotate(0deg);
     opacity: 1;
   }
+  70% {
+    opacity: 1;
+  }
   100% {
     transform: translate(
         calc(-50% + var(--tx)),
-        calc(-50% + var(--ty))
+        calc(-50% + var(--ty) + 12px)
       )
-      scale(0.35)
+      scale(0.55)
       rotate(var(--rot));
     opacity: 0;
+  }
+}
+
+@keyframes habit-flow-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 12rem;
+    margin-bottom: 0.75rem;
+  }
+  65% {
+    opacity: 0;
+    transform: translateX(-32%);
+    max-height: 12rem;
+    margin-bottom: 0.75rem;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-32%);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+  }
+}
+
+@keyframes habit-flow-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-16%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@property --undo-progress {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes undo-timer-ring {
+  from {
+    --undo-progress: 0;
+  }
+  to {
+    --undo-progress: 1;
   }
 }
 
@@ -347,5 +408,34 @@ body {
 }
 
 @utility animate-confetti-burst {
-  animation: confetti-burst 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: confetti-burst 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@utility animate-habit-flow-out {
+  animation: habit-flow-out 0.48s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@utility animate-habit-flow-in {
+  animation: habit-flow-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@utility animate-undo-timer-ring {
+  animation: undo-timer-ring 5s linear forwards;
+  background: conic-gradient(
+    from -90deg,
+    rgb(244 63 94 / 0.85) 0deg,
+    rgb(251 113 133 / 0.9) calc((1 - var(--undo-progress)) * 360deg),
+    rgb(251 207 232 / 0.25) 0deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 2px;
 }

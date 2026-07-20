@@ -1,0 +1,88 @@
+﻿@import "tailwindcss";
+
+:root {
+  --cream: #f8f1ea;
+  --cream-deep: #efe3d8;
+  --rose-light: #f7c4d4;
+  --rose-mid: #f4a8be;
+  --amber-warm: #ffe8d6;
+  --ink: #44403c;
+  --ink-muted: #78716c;
+}
+
+@theme inline {
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+}
+
+.font-body {
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.page-wash {
+  background-color: var(--cream);
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(247, 196, 212, 0.55), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 100% 30%, rgba(255, 232, 214, 0.45), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 0% 70%, rgba(244, 168, 190, 0.25), transparent 45%),
+    linear-gradient(180deg, var(--cream) 0%, var(--cream-deep) 100%);
+}
+
+.hero-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 240, 245, 0.9) 0%, transparent 55%),
+    radial-gradient(circle at 20% 80%, rgba(255, 232, 214, 0.35) 0%, transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(247, 196, 212, 0.3) 0%, transparent 35%);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.9s ease-out both;
+}
+
+.animate-fade-up-delay {
+  animation: fade-up 0.9s ease-out 0.12s both;
+}
+
+.animate-fade-up-delay-2 {
+  animation: fade-up 0.9s ease-out 0.24s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-fade-up,
+  .animate-fade-up-delay,
+  .animate-fade-up-delay-2 {
+    animation: none;
+  }
+}

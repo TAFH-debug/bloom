@@ -2,8 +2,10 @@ import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { habitCompletions, habits } from "@/db/schema";
 import {
+  CALENDAR_WINDOW_DAYS,
   CONSISTENCY_WINDOW_DAYS,
   computeConsistencyScore,
+  computeDailyScores,
   computeStreak,
   dateKeysForWindow,
   toDateKey,
@@ -22,9 +24,11 @@ function asFrequency(value: string): HabitFrequency {
 }
 
 export async function getUserProgress(userId: string) {
-  const windowStart = dateKeysForWindow(CONSISTENCY_WINDOW_DAYS)[0];
+  const fetchDays = Math.max(CONSISTENCY_WINDOW_DAYS, CALENDAR_WINDOW_DAYS);
+  const windowStart = dateKeysForWindow(fetchDays)[0];
   const weekKeys = dateKeysForWindow(7);
   const weekStart = weekKeys[0];
+  const consistencyStart = dateKeysForWindow(CONSISTENCY_WINDOW_DAYS)[0];
 
   const activeHabits = await db
     .select()
@@ -82,7 +86,9 @@ export async function getUserProgress(userId: string) {
         completion.completedOn >= weekStart,
     ).length;
     const windowDone = completions.filter(
-      (completion) => completion.habitId === habit.id,
+      (completion) =>
+        completion.habitId === habit.id &&
+        completion.completedOn >= consistencyStart,
     ).length;
 
     return {
@@ -110,6 +116,12 @@ export async function getUserProgress(userId: string) {
       habits: scoreHabits,
       completions,
     }),
+    days: computeDailyScores({
+      habits: scoreHabits,
+      completions,
+      windowDays: CALENDAR_WINDOW_DAYS,
+    }),
     habits: habitStats,
+    today,
   };
 }

@@ -2,9 +2,11 @@
 .env
 .env.local
 .env*.local
+apps/*/.env
+apps/*/.env.local
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -16,9 +18,12 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
+# next.js / vite
+.next/
+out/
+dist/
+apps/**/.next/
+apps/**/dist/
 
 # production
 /build
@@ -40,5 +45,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# tauri
-/src-tauri/target
+# tauri / python
+apps/desktop/src-tauri/target/
+apps/api/.venv/
+**/__pycache__/
+*.pyc

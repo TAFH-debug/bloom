@@ -5,6 +5,8 @@ import { Check, Plus, UserMinus } from "lucide-react";
 import { SakuraCanvas } from "@/components/sakura/sakura-canvas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CalendarWidget } from "@/components/widgets/calendar-widget";
+import { StreakWidget } from "@/components/widgets/streak-widget";
 import { useGardenStatusesLive } from "@/components/realtime/realtime-provider";
 import {
   inviteGardenMember,
@@ -43,7 +45,7 @@ function GardenColumn({
   return (
     <article
       className={cn(
-        "flex w-[15.5rem] shrink-0 flex-col rounded-3xl border border-rose-200/50 bg-gradient-to-b from-white/75 to-rose-50/40 shadow-[0_16px_40px_-28px_rgba(80,40,40,0.5)] backdrop-blur-md",
+        "flex w-[17.5rem] shrink-0 flex-col rounded-3xl border border-rose-200/50 bg-gradient-to-b from-white/75 to-rose-50/40 shadow-[0_16px_40px_-28px_rgba(80,40,40,0.5)] backdrop-blur-md",
         person.isSelf && "ring-1 ring-rose-300/60",
       )}
     >
@@ -52,7 +54,7 @@ function GardenColumn({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/80 to-transparent" />
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate font-medium text-stone-900">
@@ -78,16 +80,12 @@ function GardenColumn({
           ) : null}
         </div>
 
-        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white/50 px-2 py-2 text-center">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/50 px-2 py-2 text-center">
           <div>
             <p className="text-sm font-medium text-stone-800">
               {Math.round(person.consistency * 100)}%
             </p>
             <p className="text-[10px] text-stone-500">bloom</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-stone-800">{person.streak}</p>
-            <p className="text-[10px] text-stone-500">streak</p>
           </div>
           <div>
             <p className="text-sm font-medium text-stone-800">
@@ -96,6 +94,9 @@ function GardenColumn({
             <p className="text-[10px] text-stone-500">today</p>
           </div>
         </div>
+
+        <StreakWidget streak={person.streak} compact />
+        <CalendarWidget days={person.days ?? []} compact />
 
         <div className="min-h-0 flex-1 space-y-2">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-400">

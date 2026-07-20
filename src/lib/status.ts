@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { user } from "@/db/schema";
-import { publishStatusUpdate } from "@/lib/realtime-publish";
+import { publishStatusUpdate } from "@/lib/realtime/publish";
 import { requireSession } from "@/lib/session";
 import {
   isStatusPreset,

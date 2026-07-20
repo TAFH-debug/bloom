@@ -31,6 +31,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // src-tauri/src/lib.rs adds the `tauri-desktop` class before hydration,
+      // so the <html> class legitimately differs from the server render.
+      suppressHydrationWarning
       className={`${display.variable} ${sans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">

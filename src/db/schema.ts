@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   boolean,
   date,
+  index,
   integer,
   pgTable,
   text,
@@ -146,8 +147,38 @@ export const userPreferences = pgTable("user_preferences", {
     .references(() => user.id, { onDelete: "cascade" }),
   reminderWindowStart: integer("reminder_window_start").notNull().default(9),
   reminderWindowEnd: integer("reminder_window_end").notNull().default(0),
+  activityTrackingEnabled: boolean("activity_tracking_enabled")
+    .notNull()
+    .default(false),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const activitySegments = pgTable(
+  "activity_segments",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    startedAt: timestamp("started_at").notNull(),
+    endedAt: timestamp("ended_at").notNull(),
+    kind: text("kind").notNull(),
+    processName: text("process_name"),
+    appName: text("app_name"),
+    exePath: text("exe_path"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("activity_segments_user_started_idx").on(
+      table.userId,
+      table.startedAt,
+    ),
+    index("activity_segments_user_process_idx").on(
+      table.userId,
+      table.processName,
+    ),
+  ],
+);
 
 export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
@@ -164,6 +195,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
     fields: [user.id],
     references: [userPreferences.userId],
   }),
+  activitySegments: many(activitySegments),
 }));
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, {
@@ -235,6 +267,16 @@ export const userPreferencesRelations = relations(
   ({ one }) => ({
     user: one(user, {
       fields: [userPreferences.userId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const activitySegmentsRelations = relations(
+  activitySegments,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [activitySegments.userId],
       references: [user.id],
     }),
   }),

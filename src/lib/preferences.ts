@@ -10,6 +10,7 @@ import {
   REMINDER_INTERVAL_HOURS,
   type UserPreferences,
 } from "@/lib/reminder-constants";
+import { publishPreferences } from "@/lib/realtime/publish";
 import { requireSession } from "@/lib/session";
 
 function clampHour(value: number) {
@@ -28,6 +29,7 @@ export async function getPreferences(): Promise<UserPreferences> {
       row?.reminderWindowStart ?? DEFAULT_REMINDER_WINDOW_START,
     reminderWindowEnd: row?.reminderWindowEnd ?? DEFAULT_REMINDER_WINDOW_END,
     intervalHours: REMINDER_INTERVAL_HOURS,
+    activityTrackingEnabled: row?.activityTrackingEnabled ?? false,
   };
 }
 
@@ -58,4 +60,28 @@ export async function updateReminderWindow(input: {
 
   revalidatePath("/settings");
   return { success: true as const };
+}
+
+export async function updateActivityTrackingEnabled(enabled: boolean) {
+  const session = await requireSession();
+
+  await db
+    .insert(userPreferences)
+    .values({
+      userId: session.user.id,
+      activityTrackingEnabled: enabled,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: userPreferences.userId,
+      set: {
+        activityTrackingEnabled: enabled,
+        updatedAt: new Date(),
+      },
+    });
+
+  publishPreferences(session.user.id, { activityTrackingEnabled: enabled });
+  revalidatePath("/settings");
+  revalidatePath("/focus");
+  return { success: true as const, enabled };
 }

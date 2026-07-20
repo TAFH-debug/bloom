@@ -9,9 +9,9 @@ import type { GardenInvitationView } from "@/lib/garden-types";
 import { getUserProgress } from "@/lib/progress";
 import {
   publishGardenChanged,
-  publishInviteIncoming,
+  publishInviteAdded,
   publishInviteRemoved,
-} from "@/lib/realtime-publish";
+} from "@/lib/realtime/publish";
 import { requireSession } from "@/lib/session";
 
 function newId() {
@@ -335,7 +335,7 @@ export async function inviteGardenMember(email: string) {
     });
   }
 
-  publishInviteIncoming(found.id, {
+  publishInviteAdded(found.id, {
     id: invitationId,
     fromUserId: session.user.id,
     toUserId: found.id,

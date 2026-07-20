@@ -1,0 +1,8 @@
+[[permission]]
+identifier = "allow-activity"
+description = "Allows Bloom desktop activity tracking commands"
+commands.allow = [
+  "activity_status",
+  "activity_set_enabled",
+  "activity_take_segments"
+]

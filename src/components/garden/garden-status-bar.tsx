@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Flower2 } from "lucide-react";
+import { GardenInviteBell } from "@/components/garden/garden-invite-bell";
 import { useGardenStatusesLive } from "@/components/realtime/realtime-provider";
 import type { GardenPerson } from "@/lib/garden-types";
 import { formatStatusDisplay } from "@/lib/status-types";
@@ -60,21 +61,26 @@ export function GardenStatusBar({ people: initialPeople }: { people: GardenPerso
       </div>
 
       <div className="relative flex h-full flex-col">
-        <div className="flex items-center gap-3 border-b border-rose-200/40 px-3 py-5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-300/80 to-amber-100 text-rose-800">
-            <Flower2 className="size-4" />
+        <div className="flex items-center border-b border-rose-200/40 px-2.5 py-4 group-hover/garden:gap-2 group-focus-within/garden:gap-2">
+          <div className="hidden min-w-0 flex-1 items-center gap-3 group-hover/garden:flex group-focus-within/garden:flex">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-300/80 to-amber-100 text-rose-800">
+              <Flower2 className="size-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-[family-name:var(--font-display)] text-lg leading-none text-stone-900">
+                Garden
+              </p>
+              <p className="mt-1 truncate text-xs text-stone-500">
+                {people.length}/5 growing
+              </p>
+            </div>
           </div>
-          <div className="min-w-0 opacity-0 transition-opacity duration-200 group-hover/garden:opacity-100 group-focus-within/garden:opacity-100">
-            <p className="font-[family-name:var(--font-display)] text-lg leading-none text-stone-900">
-              Garden
-            </p>
-            <p className="mt-1 truncate text-xs text-stone-500">
-              {people.length}/5 growing
-            </p>
+          <div className="mx-auto shrink-0 group-hover/garden:mx-0 group-focus-within/garden:mx-0">
+            <GardenInviteBell />
           </div>
         </div>
 
-        <div className="relative flex-1 overflow-y-auto overflow-x-hidden px-2 py-3">
+        <div className="relative flex-1 overflow-hidden px-2 py-3">
           <ul className="space-y-2">
             {people.map((person) => {
               const status = formatStatusDisplay(

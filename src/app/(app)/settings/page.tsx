@@ -1,3 +1,4 @@
+import { ActivityTrackingSettings } from "@/components/settings/activity-tracking-settings";
 import { ReminderSettingsForm } from "@/components/settings/reminder-settings-form";
 import { StatusPicker } from "@/components/status/status-picker";
 import { getPreferences } from "@/lib/preferences";
@@ -16,7 +17,8 @@ export default async function SettingsPage() {
           Settings
         </h1>
         <p className="mt-2 max-w-md text-stone-500">
-          Reminder window for the desktop app, and what you are doing right now.
+          Reminder window for the desktop app, activity tracking, and what you
+          are doing right now.
         </p>
       </div>
 
@@ -26,6 +28,12 @@ export default async function SettingsPage() {
 
       <section className="animate-fade-up-slow rounded-3xl border border-rose-200/50 bg-white/55 p-6 shadow-[0_20px_50px_-36px_rgba(80,40,40,0.45)] backdrop-blur-md">
         <ReminderSettingsForm initial={prefs} />
+      </section>
+
+      <section className="animate-fade-up-slow rounded-3xl border border-rose-200/50 bg-white/55 p-6 shadow-[0_20px_50px_-36px_rgba(80,40,40,0.45)] backdrop-blur-md">
+        <ActivityTrackingSettings
+          initialEnabled={prefs.activityTrackingEnabled}
+        />
       </section>
     </main>
   );

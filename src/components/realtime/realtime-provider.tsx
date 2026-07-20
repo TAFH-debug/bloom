@@ -8,6 +8,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
 } from "react";
 import { useRouter } from "next/navigation";
 import type {
@@ -16,25 +19,26 @@ import type {
   GardenPersonStatus,
 } from "@/lib/garden-types";
 import {
-  parseRealtimeMessage,
-  type RealtimeMessage,
-} from "@/lib/realtime-protocol";
+  decodeServerMessage,
+  type ClientMessage,
+  type ServerMessage,
+} from "@/lib/realtime/protocol";
 
 type StatusMap = Record<string, GardenPersonStatus>;
 
-type RealtimeContextValue = {
+type RealtimeValue = {
   connected: boolean;
+  userId: string | null;
   statuses: StatusMap;
   incomingInvites: GardenInvitationView[];
-  setIncomingInvites: React.Dispatch<
-    React.SetStateAction<GardenInvitationView[]>
-  >;
-  gardenEpoch: number;
+  setIncomingInvites: Dispatch<SetStateAction<GardenInvitationView[]>>;
+  activityTrackingEnabled: boolean | null;
+  send: (message: ClientMessage) => boolean;
 };
 
-const RealtimeContext = createContext<RealtimeContextValue | null>(null);
+const RealtimeContext = createContext<RealtimeValue | null>(null);
 
-function wsUrl() {
+function socketUrl() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/api/ws`;
 }
@@ -44,117 +48,157 @@ export function RealtimeProvider({
   children,
 }: {
   initialIncoming: GardenInvitationView[];
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const router = useRouter();
   const [connected, setConnected] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [statuses, setStatuses] = useState<StatusMap>({});
   const [incomingInvites, setIncomingInvites] = useState(initialIncoming);
-  const [gardenEpoch, setGardenEpoch] = useState(0);
-  const retryRef = useRef(0);
+  const [activityTrackingEnabled, setActivityTrackingEnabled] = useState<
+    boolean | null
+  >(null);
   const socketRef = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
+  const [seededFrom, setSeededFrom] = useState(initialIncoming);
+  if (seededFrom !== initialIncoming) {
+    setSeededFrom(initialIncoming);
     setIncomingInvites(initialIncoming);
-  }, [initialIncoming]);
+  }
 
-  const handleMessage = useCallback(
-    (message: RealtimeMessage) => {
+  const routerRef = useRef(router);
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
+
+  const send = useCallback((message: ClientMessage) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+    socket.send(JSON.stringify(message));
+    return true;
+  }, []);
+
+  useEffect(() => {
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | undefined;
+    let attempts = 0;
+    let closed = false;
+
+    function apply(message: ServerMessage) {
       switch (message.type) {
         case "status":
           setStatuses((prev) => ({
             ...prev,
-            [message.payload.memberId]: {
-              statusPreset: message.payload.statusPreset,
-              statusNote: message.payload.statusNote,
-              statusUpdatedAt: message.payload.statusUpdatedAt,
+            [message.data.memberId]: {
+              statusPreset: message.data.statusPreset,
+              statusNote: message.data.statusNote,
+              statusUpdatedAt: message.data.statusUpdatedAt,
             },
           }));
           break;
-        case "invite:incoming":
-          setIncomingInvites((prev) => {
-            if (prev.some((invite) => invite.id === message.payload.id)) {
-              return prev;
-            }
-            return [message.payload, ...prev];
-          });
-          break;
-        case "invite:removed":
+        case "invite-added":
           setIncomingInvites((prev) =>
-            prev.filter((invite) => invite.id !== message.payload.invitationId),
+            prev.some((invite) => invite.id === message.data.id)
+              ? prev
+              : [message.data, ...prev],
           );
           break;
-        case "garden:changed":
-          if (message.payload.reason !== "connected") {
-            setGardenEpoch((value) => value + 1);
-            router.refresh();
+        case "invite-removed":
+          setIncomingInvites((prev) =>
+            prev.filter((invite) => invite.id !== message.data.invitationId),
+          );
+          break;
+        case "garden-changed":
+          routerRef.current.refresh();
+          break;
+        case "preferences":
+          setActivityTrackingEnabled(message.data.activityTrackingEnabled);
+          break;
+        case "activity-ingested":
+          if (message.data.inserted > 0) {
+            routerRef.current.refresh();
           }
+          break;
+        case "hello":
+          setUserId(message.data.userId);
           break;
         default:
           break;
       }
-    },
-    [router],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    let reconnectTimer: number | undefined;
+    }
 
     function connect() {
-      if (cancelled) return;
-      const socket = new WebSocket(wsUrl());
-      socketRef.current = socket;
+      if (closed) return;
+      const ws = new WebSocket(socketUrl());
+      socket = ws;
+      socketRef.current = ws;
 
-      socket.onopen = () => {
-        if (cancelled) return;
-        retryRef.current = 0;
+      ws.onopen = () => {
+        attempts = 0;
         setConnected(true);
       };
-
-      socket.onmessage = (event) => {
+      ws.onmessage = (event) => {
         if (typeof event.data !== "string") return;
-        const message = parseRealtimeMessage(event.data);
-        if (message) handleMessage(message);
+        const message = decodeServerMessage(event.data);
+        if (message) apply(message);
       };
-
-      socket.onclose = () => {
+      ws.onclose = () => {
         setConnected(false);
-        socketRef.current = null;
-        if (cancelled) return;
-        const delay = Math.min(10_000, 800 * 2 ** retryRef.current);
-        retryRef.current += 1;
+        if (socket === ws) {
+          socket = null;
+          socketRef.current = null;
+        }
+        if (closed) return;
+        const delay = Math.min(10_000, 1_000 * 2 ** attempts);
+        attempts += 1;
         reconnectTimer = window.setTimeout(connect, delay);
       };
+      ws.onerror = () => ws.close();
+    }
 
-      socket.onerror = () => {
-        socket.close();
-      };
+    function onVisible() {
+      if (document.visibilityState !== "visible" || socket || closed) return;
+      window.clearTimeout(reconnectTimer);
+      attempts = 0;
+      connect();
     }
 
     connect();
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      cancelled = true;
-      if (reconnectTimer) window.clearTimeout(reconnectTimer);
-      socketRef.current?.close();
+      closed = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearTimeout(reconnectTimer);
+      socket?.close();
       socketRef.current = null;
     };
-  }, [handleMessage]);
+  }, []);
 
-  const value = useMemo(
+  const value = useMemo<RealtimeValue>(
     () => ({
       connected,
+      userId,
       statuses,
       incomingInvites,
       setIncomingInvites,
-      gardenEpoch,
+      activityTrackingEnabled,
+      send,
     }),
-    [connected, statuses, incomingInvites, gardenEpoch],
+    [
+      connected,
+      userId,
+      statuses,
+      incomingInvites,
+      activityTrackingEnabled,
+      send,
+    ],
   );
 
   return (
-    <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>
+    <RealtimeContext.Provider value={value}>
+      {children}
+    </RealtimeContext.Provider>
   );
 }
 
@@ -167,30 +211,13 @@ export function useRealtime() {
 }
 
 export function useGardenStatusesLive(initialPeople: GardenPerson[]) {
-  const { statuses, gardenEpoch } = useRealtime();
-  const [people, setPeople] = useState(initialPeople);
-
-  useEffect(() => {
-    setPeople(initialPeople);
-  }, [initialPeople, gardenEpoch]);
-
-  useEffect(() => {
-    if (Object.keys(statuses).length === 0) return;
-    setPeople((prev) =>
-      prev.map((person) => {
+  const { statuses } = useRealtime();
+  return useMemo(
+    () =>
+      initialPeople.map((person) => {
         const next = statuses[person.memberId];
-        if (!next) return person;
-        if (
-          next.statusPreset === person.statusPreset &&
-          next.statusNote === person.statusNote &&
-          next.statusUpdatedAt === person.statusUpdatedAt
-        ) {
-          return person;
-        }
-        return { ...person, ...next };
+        return next ? { ...person, ...next } : person;
       }),
-    );
-  }, [statuses]);
-
-  return people;
+    [initialPeople, statuses],
+  );
 }

@@ -36,6 +36,13 @@
       "when": 1784077514814,
       "tag": "0004_bouncy_brood",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784334625666,
+      "tag": "0005_daffy_the_liberteens",
+      "breakpoints": true
     }
   ]
 }
