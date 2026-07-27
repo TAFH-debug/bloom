@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState, useTransition } from "react";
-import { Check, Plus, UserMinus } from "lucide-react";
+import { Check, Plus, Timer, UserMinus } from "lucide-react";
 import { SakuraCanvas } from "@/components/sakura/sakura-canvas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
   removeGardenMember,
 } from "@/lib/garden";
 import type { GardenInvitationView, GardenPerson } from "@/lib/garden-types";
+import { formatDuration } from "@/lib/format-duration";
 import { formatStatusDisplay } from "@/lib/status-types";
 import { cn } from "@/lib/utils";
 import { GardenInvitesPanel } from "@/components/garden/garden-invites-panel";
@@ -93,6 +94,41 @@ function GardenColumn({
             </p>
             <p className="text-[10px] text-stone-500">today</p>
           </div>
+        </div>
+
+        <div className="rounded-2xl bg-white/55 px-3 py-2.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-stone-400">
+            <Timer className="size-3 text-rose-400" />
+            Focus
+          </div>
+          <p className="mt-1.5 font-[family-name:var(--font-display)] text-lg tracking-tight text-stone-900">
+            {formatDuration(person.focusActiveMs ?? 0)}
+          </p>
+          <p className="text-[10px] text-stone-500">
+            active
+            {(person.focusIdleMs ?? 0) > 0
+              ? ` · ${formatDuration(person.focusIdleMs ?? 0)} idle`
+              : ""}
+          </p>
+          {(person.focusTopApps?.length ?? 0) > 0 ? (
+            <ul className="mt-2 space-y-1 border-t border-rose-100/70 pt-2">
+              {(person.focusTopApps ?? []).slice(0, 2).map((app) => (
+                <li
+                  key={`${app.label}-${app.durationMs}`}
+                  className="flex items-baseline justify-between gap-2 text-[11px]"
+                >
+                  <span className="min-w-0 truncate text-stone-600">
+                    {app.label}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-stone-400">
+                    {formatDuration(app.durationMs)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-[10px] text-stone-400">No activity yet</p>
+          )}
         </div>
 
         <StreakWidget streak={person.streak} compact />

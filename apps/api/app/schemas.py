@@ -78,6 +78,10 @@ class GardenHabitStat(BaseModel):
     weekDone: int
     windowRate: float
 
+class FocusTopApp(BaseModel):
+    label: str
+    durationMs: int
+
 class GardenPerson(BaseModel):
     id: str
     memberId: str
@@ -91,6 +95,9 @@ class GardenPerson(BaseModel):
     streak: int
     days: list[DayScore]
     habits: list[GardenHabitStat]
+    focusActiveMs: int = 0
+    focusIdleMs: int = 0
+    focusTopApps: list[FocusTopApp] = []
     statusPreset: Optional[str] = None
     statusNote: Optional[str] = None
     statusUpdatedAt: Optional[str] = None
@@ -183,6 +190,26 @@ class ActivityDashboard(BaseModel):
     apps: list[AppBreakdownRow]
     timeline: list[TimelineBlock]
     trackingEnabled: bool
+
+
+# ── Calendar ──────────────────────────────────────────────────────────
+
+class CalendarHabitDay(BaseModel):
+    id: str
+    name: str
+    frequency: str
+    timesPerPeriod: int
+    due: bool
+    periodKey: str
+    slots: list[bool]
+    completedSlots: int
+
+class CalendarDayDigest(BaseModel):
+    day: str
+    habitScore: Optional[float] = None
+    habits: list[CalendarHabitDay]
+    days: list[DayScore]
+    focus: ActivityDashboard
 
 
 # ── Generic ───────────────────────────────────────────────────────────

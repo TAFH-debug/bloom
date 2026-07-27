@@ -5,19 +5,10 @@ import { toast } from "sonner";
 import { Timer } from "lucide-react";
 import type { ActivityDashboard } from "@/lib/activity-types";
 import { setDesktopActivityEnabled } from "@/lib/desktop-activity";
+import { formatDuration } from "@/lib/format-duration";
 import { updateActivityTrackingEnabled } from "@/lib/preferences";
 import { isTauri } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
-
-function formatDuration(ms: number) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours <= 0) return `${minutes}m`;
-  return `${hours}h ${minutes}m`;
-}
 
 function formatClock(iso: string) {
   return new Date(iso).toLocaleTimeString([], {

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app import schemas as S
 from app.deps import get_current_user, get_db
+from app.domain.activity_stats import focus_summary_for_day
 from app.domain.consistency import (
     CALENDAR_WINDOW,
     CONSISTENCY_WINDOW,
@@ -93,6 +94,7 @@ def _user_progress(db: DbSession, user_id: str) -> dict:
         ))
 
     completed_today = sum(1 for s in habit_stats if s.completedToday)
+    focus = focus_summary_for_day(db, user_id)
     return {
         "habitCount": len(habit_ids),
         "completedToday": completed_today,
@@ -100,6 +102,7 @@ def _user_progress(db: DbSession, user_id: str) -> dict:
         "streak": compute_streak(score_habits, comp_dicts),
         "days": [S.DayScore(**d) for d in compute_daily_scores(score_habits, comp_dicts, CALENDAR_WINDOW)],
         "habits": habit_stats,
+        **focus,
     }
 
 

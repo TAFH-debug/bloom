@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import activity, auth, garden, habits, preferences, status
+from app.routers import activity, auth, calendar, garden, habits, preferences, status
 from app.ws import websocket_endpoint
 
 app = FastAPI(title="Bloom API", version="0.1.0")
@@ -21,6 +21,7 @@ app.include_router(garden.router)
 app.include_router(status.router)
 app.include_router(preferences.router)
 app.include_router(activity.router)
+app.include_router(calendar.router)
 
 app.websocket("/ws")(websocket_endpoint)
 

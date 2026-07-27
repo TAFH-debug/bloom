@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { DesktopShell } from "@/components/desktop/desktop-shell";
 import { Toaster } from "@/components/ui/sonner";
+import { toDateKey } from "@/lib/consistency";
 import { AuthLayout } from "@/pages/auth-layout";
+import { CalendarPage } from "@/pages/calendar-page";
 import { FocusPage } from "@/pages/focus-page";
 import { GardenPage } from "@/pages/garden-page";
 import { HabitsPage } from "@/pages/habits-page";
@@ -24,6 +26,11 @@ export function App() {
           <Route path="/habits" element={<HabitsPage />} />
           <Route path="/focus" element={<FocusPage />} />
           <Route path="/garden" element={<GardenPage />} />
+          <Route
+            path="/calendar"
+            element={<Navigate to={`/calendar/${toDateKey()}`} replace />}
+          />
+          <Route path="/calendar/:day" element={<CalendarPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { format, getDay, parseISO } from "date-fns";
 import type { DayScore } from "@/lib/consistency";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,6 @@ function padToWeekStart(days: DayScore[]) {
   if (days.length === 0) return [] as Array<DayScore | null>;
 
   const first = parseISO(`${days[0].date}T12:00:00`);
-  // getDay: 0=Sun … 6=Sat → Monday-based index 0–6
   const mondayIndex = (getDay(first) + 6) % 7;
   const leading: Array<DayScore | null> = Array.from(
     { length: mondayIndex },
@@ -39,15 +39,20 @@ export function CalendarWidget({
   days,
   className,
   compact = false,
+  selectedDay,
+  onDayClick,
 }: {
   days: DayScore[];
   className?: string;
   compact?: boolean;
+  selectedDay?: string;
+  onDayClick?: (day: string) => void;
 }) {
   const cells = padToWeekStart(days);
   const weeks = Math.ceil(cells.length / 7) || 4;
   const gap = compact ? "gap-1" : "gap-1.5";
   const cellRound = compact ? "rounded-[3px]" : "rounded-[4px]";
+  const interactive = Boolean(onDayClick);
 
   return (
     <section
@@ -64,7 +69,9 @@ export function CalendarWidget({
             Calendar
           </p>
           {!compact ? (
-            <p className="mt-1 text-sm text-stone-500">Last 4 weeks</p>
+            <p className="mt-1 text-sm text-stone-500">
+              {interactive ? "Tap a day for details" : "Last 4 weeks"}
+            </p>
           ) : (
             <p className="mt-0.5 text-[10px] text-stone-400">4 weeks</p>
           )}
@@ -119,16 +126,36 @@ export function CalendarWidget({
 
             const parsed = parseISO(`${day.date}T12:00:00`);
             const title = `${format(parsed, "MMM d")} · ${densityLabel(day.score)}`;
+            const selected = selectedDay === day.date;
+            const classNames = cn(
+              "aspect-square transition-transform duration-200",
+              cellRound,
+              densityClass(day.score),
+              interactive && "cursor-pointer hover:scale-110",
+              selected && "ring-2 ring-rose-500 ring-offset-1 ring-offset-[#f8f1ea]",
+            );
+
+            if (interactive) {
+              return (
+                <button
+                  key={day.date}
+                  type="button"
+                  title={title}
+                  aria-label={title}
+                  aria-pressed={selected}
+                  onClick={() => onDayClick?.(day.date)}
+                  className={classNames}
+                />
+              );
+            }
 
             return (
-              <span
+              <Link
                 key={day.date}
+                to={`/calendar/${day.date}`}
                 title={title}
-                className={cn(
-                  "aspect-square transition-transform duration-200 hover:scale-110",
-                  cellRound,
-                  densityClass(day.score),
-                )}
+                aria-label={title}
+                className={cn(classNames, "hover:scale-110")}
               />
             );
           })}

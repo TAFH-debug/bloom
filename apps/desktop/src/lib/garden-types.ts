@@ -18,6 +18,11 @@ export type GardenPersonStatus = {
   statusUpdatedAt: string | null;
 };
 
+export type FocusTopApp = {
+  label: string;
+  durationMs: number;
+};
+
 export type GardenPerson = {
   id: string;
   memberId: string;
@@ -31,6 +36,9 @@ export type GardenPerson = {
   streak: number;
   days: DayScore[];
   habits: GardenHabitStat[];
+  focusActiveMs?: number;
+  focusIdleMs?: number;
+  focusTopApps?: FocusTopApp[];
 } & GardenPersonStatus;
 
 export type GardenInvitationView = {

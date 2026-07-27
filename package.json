@@ -9,7 +9,7 @@
   "scripts": {
     "dev:desktop": "npm run tauri:dev -w @bloom/desktop",
     "dev:web": "npm run dev -w web",
-    "dev:api": "cd apps/api && .venv/Scripts/python -m uvicorn app.main:app --reload --port 8000",
+    "dev:api": "cd apps/api && .venv\\Scripts\\python -m uvicorn app.main:app --reload --port 8000",
     "build:desktop": "npm run tauri:build -w @bloom/desktop",
     "build:web": "npm run build -w web",
     "lint": "npm run lint -w web --if-present"

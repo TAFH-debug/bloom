@@ -8,6 +8,7 @@ import {
   Flower2,
   Settings,
   Timer,
+  CalendarDays,
   PanelLeftClose,
   PanelLeft,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const links = [
   { href: "/", label: "Home", icon: Home },
   { href: "/habits", label: "Habits", icon: Leaf },
   { href: "/focus", label: "Focus", icon: Timer },
+  { href: "/calendar", label: "Days", icon: CalendarDays },
   { href: "/garden", label: "Garden", icon: Flower2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
