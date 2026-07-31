@@ -7,6 +7,7 @@ import { getPreferences } from "@/lib/preferences";
 import {
   canRemindNow,
   readLastReminderAt,
+  shouldFireReminder,
   writeLastReminderAt,
 } from "@/lib/reminder-scheduler";
 import { isTauri } from "@/lib/tauri";
@@ -25,9 +26,13 @@ export function HabitReminders() {
       if (cancelled || running.current) return;
       running.current = true;
       try {
-        const prefs = await getPreferences();
         const now = new Date();
         const last = readLastReminderAt();
+        // Cheap local cooldown gate first — the vast majority of ticks fall
+        // inside it, and this keeps them off the network entirely.
+        if (!shouldFireReminder(now, last)) return;
+
+        const prefs = await getPreferences();
         if (
           !canRemindNow(
             now,

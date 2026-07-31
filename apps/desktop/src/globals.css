@@ -225,6 +225,15 @@ body {
   height: 0;
 }
 
+/* Tray/minimised: WebView2 does not always throttle a hidden Tauri window, so
+   stop repainting the ambient loops ourselves. Toggled by lib/window-activity. */
+.app-hidden *,
+.app-hidden *::before,
+.app-hidden *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+
 @keyframes gradient-shift {
   0%,
   100% {

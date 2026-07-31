@@ -34,28 +34,23 @@ export function GardenInviteBell() {
       return;
     }
 
-    let raf = 0;
-
     function updatePosition() {
       const button = buttonRef.current;
       if (!button) return;
       const rect = button.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.left + 8,
-      });
+      const top = rect.bottom + 8;
+      const right = window.innerWidth - rect.left + 8;
+      // Only re-render when the anchor actually moved — this used to run on a
+      // rAF loop and re-rendered the panel 60 times a second while open.
+      setCoords((prev) =>
+        prev && prev.top === top && prev.right === right ? prev : { top, right },
+      );
     }
 
-    function tick() {
-      updatePosition();
-      raf = window.requestAnimationFrame(tick);
-    }
-
-    tick();
+    updatePosition();
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);
     return () => {
-      window.cancelAnimationFrame(raf);
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };

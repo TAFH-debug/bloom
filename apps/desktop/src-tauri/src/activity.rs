@@ -1,12 +1,14 @@
 use chrono::{DateTime, Utc};
-use parking_lot::Mutex;
+use parking_lot::{Condvar, Mutex};
 use serde::Serialize;
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 const IDLE_THRESHOLD: Duration = Duration::from_secs(60);
-const POLL_INTERVAL: Duration = Duration::from_secs(1);
+/// Segment boundaries only need coarse resolution — a tighter poll just burns
+/// CPU in the tray for no extra fidelity.
+const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const MAX_PENDING: usize = 500;
 
 #[derive(Clone, Debug, Serialize)]
@@ -56,6 +58,7 @@ struct TrackerInner {
 #[derive(Clone)]
 pub struct ActivityTracker {
   inner: Arc<Mutex<TrackerInner>>,
+  wake: Arc<Condvar>,
 }
 
 impl ActivityTracker {
@@ -67,6 +70,7 @@ impl ActivityTracker {
         pending: Vec::new(),
         supported,
       })),
+      wake: Arc::new(Condvar::new()),
     }
   }
 
@@ -75,15 +79,27 @@ impl ActivityTracker {
       return;
     }
     let tracker = self.clone();
-    thread::spawn(move || {
-      let mut last_tick = Instant::now();
-      loop {
-        thread::sleep(POLL_INTERVAL);
-        let _ = last_tick.elapsed();
-        last_tick = Instant::now();
-        tracker.tick();
-      }
-    });
+    let _ = thread::Builder::new()
+      .name("bloom-activity".into())
+      .spawn(move || {
+        let mut sampler = Sampler::default();
+        loop {
+          // Park the thread outright while tracking is off. The old loop woke
+          // every second and ran the full Win32 probe before checking
+          // `enabled`, so a disabled tracker still cost syscalls forever.
+          {
+            let mut guard = tracker.inner.lock();
+            while !guard.enabled {
+              tracker.wake.wait(&mut guard);
+            }
+          }
+
+          if let Some(sample) = sampler.sample() {
+            tracker.apply_sample(sample);
+          }
+          thread::sleep(POLL_INTERVAL);
+        }
+      });
   }
 
   pub fn status(&self) -> ActivityStatus {
@@ -110,6 +126,9 @@ impl ActivityTracker {
       Self::close_open(&mut guard, Utc::now());
     }
     guard.enabled = enabled;
+    drop(guard);
+    // Unpark the sampler when tracking turns back on.
+    self.wake.notify_all();
   }
 
   /// Drain closed segments and include a live snapshot of the open one.
@@ -129,11 +148,7 @@ impl ActivityTracker {
     out
   }
 
-  fn tick(&self) {
-    let sample = match sample_foreground() {
-      Some(sample) => sample,
-      None => return,
-    };
+  fn apply_sample(&self, sample: SampleKey) {
     let mut guard = self.inner.lock();
     if !guard.enabled {
       return;
@@ -251,14 +266,24 @@ fn new_id() -> String {
   )
 }
 
-#[cfg(windows)]
-fn sample_foreground() -> Option<SampleKey> {
-  windows_impl::sample_foreground(IDLE_THRESHOLD)
+/// Owns the per-thread probe cache so a steady foreground window costs one
+/// cheap `GetForegroundWindow` per tick instead of a full process probe.
+#[derive(Default)]
+struct Sampler {
+  #[cfg(windows)]
+  cache: windows_impl::SampleCache,
 }
 
-#[cfg(not(windows))]
-fn sample_foreground() -> Option<SampleKey> {
-  None
+impl Sampler {
+  #[cfg(windows)]
+  fn sample(&mut self) -> Option<SampleKey> {
+    windows_impl::sample_foreground(&mut self.cache, IDLE_THRESHOLD)
+  }
+
+  #[cfg(not(windows))]
+  fn sample(&mut self) -> Option<SampleKey> {
+    None
+  }
 }
 
 #[cfg(windows)]
@@ -278,7 +303,28 @@ mod windows_impl {
     GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
   };
 
-  pub fn sample_foreground(idle_threshold: Duration) -> Option<SampleKey> {
+  /// Ticks to reuse a cached window title before re-reading it. `GetWindowTextW`
+  /// crosses a process boundary (WM_GETTEXT) and can block on a busy app, and
+  /// the title is not part of `SampleKey` equality — so refreshing it on every
+  /// tick buys nothing.
+  const TITLE_REFRESH_TICKS: u32 = 3;
+
+  /// Remembers the last foreground probe so an unchanged window skips
+  /// `OpenProcess` / `QueryFullProcessImageNameW` entirely.
+  #[derive(Default)]
+  pub struct SampleCache {
+    hwnd: isize,
+    pid: u32,
+    exe_path: Option<String>,
+    process_name: Option<String>,
+    title: Option<String>,
+    title_age: u32,
+  }
+
+  pub fn sample_foreground(
+    cache: &mut SampleCache,
+    idle_threshold: Duration,
+  ) -> Option<SampleKey> {
     let idle = idle_duration() >= idle_threshold;
     if idle {
       return Some(SampleKey {
@@ -301,32 +347,48 @@ mod windows_impl {
 
     let mut pid = 0u32;
     unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
-    let title = window_title(hwnd);
+
+    let handle = hwnd.0 as isize;
+    let same_window = handle == cache.hwnd && pid == cache.pid;
+
+    if !same_window {
+      cache.hwnd = handle;
+      cache.pid = pid;
+      cache.title = window_title(hwnd);
+      cache.title_age = 0;
+      cache.exe_path = if pid == 0 { None } else { process_exe_path(pid) };
+      cache.process_name = cache.exe_path.as_ref().and_then(|p| {
+        Path::new(p)
+          .file_name()
+          .map(|name| name.to_string_lossy().into_owned())
+      });
+    } else if cache.title_age >= TITLE_REFRESH_TICKS {
+      cache.title = window_title(hwnd);
+      cache.title_age = 0;
+    } else {
+      cache.title_age += 1;
+    }
 
     if pid == 0 {
       return Some(SampleKey {
         idle: false,
         process_name: Some("Unknown".into()),
-        app_name: title.or_else(|| Some("Unknown".into())),
+        app_name: cache.title.clone().or_else(|| Some("Unknown".into())),
         exe_path: None,
       });
     }
 
-    let exe_path = process_exe_path(pid);
-    let process_name = exe_path.as_ref().and_then(|p| {
-      Path::new(p)
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-    });
-    let app_name = title
+    let app_name = cache
+      .title
+      .clone()
       .filter(|t| !t.trim().is_empty())
-      .or_else(|| process_name.clone());
+      .or_else(|| cache.process_name.clone());
 
     Some(SampleKey {
       idle: false,
-      process_name,
+      process_name: cache.process_name.clone(),
       app_name,
-      exe_path,
+      exe_path: cache.exe_path.clone(),
     })
   }
 

@@ -16,8 +16,12 @@ import { isTauri, whenTauri } from "@/lib/tauri";
 
 /** How often to drain Rust segments onto the socket. */
 const FLUSH_EVERY_MS = 15_000;
-/** How often to mirror the foreground app into garden status. */
-const STATUS_EVERY_MS = 3_000;
+/**
+ * How often to mirror the foreground app into garden status. The Rust sampler
+ * only advances every couple of seconds, so polling faster than this just
+ * burned IPC round-trips while the app sat in the tray.
+ */
+const STATUS_EVERY_MS = 10_000;
 
 export function ActivityTracker() {
     const { connected, send, activityTrackingEnabled } = useRealtime();

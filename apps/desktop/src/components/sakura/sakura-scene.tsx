@@ -1,9 +1,13 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Float, OrbitControls } from "@react-three/drei";
-import { useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useWindowActivity } from "@/lib/window-activity";
+
+/** Frames per second while the window is visible but unfocused. */
+const BACKGROUND_FPS = 10;
 
 const PETAL_PINKS = ["#ffe4ec", "#f7c4d4", "#f4a8be", "#ffd0de", "#f9b8c9", "#fff0f5"];
 const WOOD = ["#5c4538", "#6b5344", "#7a5f4d", "#8a6b55"];
@@ -140,11 +144,32 @@ function Branches({ score }: { score: number }) {
   );
 }
 
+/**
+ * Instance tints never change once the mesh is built, so paint them once
+ * instead of re-parsing every hex string and re-uploading the colour buffer on
+ * every frame.
+ */
+function useStaticInstanceColors(
+  mesh: React.RefObject<THREE.InstancedMesh | null>,
+  tints: string[],
+) {
+  useLayoutEffect(() => {
+    const instanced = mesh.current;
+    if (!instanced) return;
+    const color = new THREE.Color();
+    for (let index = 0; index < tints.length; index += 1) {
+      color.set(tints[index]);
+      instanced.setColorAt(index, color);
+    }
+    if (instanced.instanceColor) instanced.instanceColor.needsUpdate = true;
+    instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  }, [mesh, tints]);
+}
+
 function Canopy({ score }: { score: number }) {
   const count = petalCount(score);
   const mesh = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const color = useMemo(() => new THREE.Color(), []);
   const positions = useMemo(() => {
     return Array.from({ length: count }, (_, index) => {
       const layer = index % 5;
@@ -176,10 +201,15 @@ function Canopy({ score }: { score: number }) {
     });
   }, [count, score]);
 
+  const tints = useMemo(() => positions.map((petal) => petal.pink), [positions]);
+  useStaticInstanceColors(mesh, tints);
+
   useFrame((state) => {
-    if (!mesh.current) return;
+    const instanced = mesh.current;
+    if (!instanced) return;
     const t = state.clock.elapsedTime;
-    positions.forEach((petal, index) => {
+    for (let index = 0; index < positions.length; index += 1) {
+      const petal = positions[index];
       const breeze = Math.sin(t * 0.55 + petal.phase) * 0.045;
       const lift = Math.cos(t * 0.7 + petal.phase * 1.3) * 0.05;
       dummy.position.set(
@@ -194,14 +224,9 @@ function Canopy({ score }: { score: number }) {
       );
       dummy.scale.set(petal.size, petal.size * 0.32, petal.size * 0.72);
       dummy.updateMatrix();
-      mesh.current!.setMatrixAt(index, dummy.matrix);
-      color.set(petal.pink);
-      mesh.current!.setColorAt(index, color);
-    });
-    mesh.current.instanceMatrix.needsUpdate = true;
-    if (mesh.current.instanceColor) {
-      mesh.current.instanceColor.needsUpdate = true;
+      instanced.setMatrixAt(index, dummy.matrix);
     }
+    instanced.instanceMatrix.needsUpdate = true;
   });
 
   return (
@@ -218,8 +243,6 @@ function Canopy({ score }: { score: number }) {
 }
 
 function BloomCloud({ score }: { score: number }) {
-  if (score < 0.12) return null;
-
   const clusters = useMemo(() => {
     const n = 4 + Math.round(score * 5);
     return Array.from({ length: n }, (_, i) => {
@@ -238,11 +261,15 @@ function BloomCloud({ score }: { score: number }) {
     });
   }, [score]);
 
+  // Guard *after* the hooks — an early return above would change hook order the
+  // moment the score crossed the threshold.
+  if (score < 0.12) return null;
+
   return (
     <group>
       {clusters.map((cluster, index) => (
         <mesh key={index} position={cluster.position} scale={cluster.scale}>
-          <sphereGeometry args={[1, 20, 16]} />
+          <sphereGeometry args={[1, 16, 12]} />
           <meshStandardMaterial
             color={cluster.color}
             transparent
@@ -272,13 +299,17 @@ function FallingPetals({ score }: { score: number }) {
       pink: PETAL_PINKS[index % PETAL_PINKS.length],
     }));
   }, [count]);
-  const color = useMemo(() => new THREE.Color(), []);
+
+  const tints = useMemo(() => seeds.map((seed) => seed.pink), [seeds]);
+  useStaticInstanceColors(mesh, tints);
 
   useFrame((state) => {
-    if (!mesh.current) return;
+    const instanced = mesh.current;
+    if (!instanced) return;
     const t = state.clock.elapsedTime;
-    seeds.forEach((seed, index) => {
-      const fall = ((t * seed.speed + seed.phase) % 1.15);
+    for (let index = 0; index < seeds.length; index += 1) {
+      const seed = seeds[index];
+      const fall = (t * seed.speed + seed.phase) % 1.15;
       const y = seed.startY - fall * 3.2;
       dummy.position.set(
         seed.x + Math.sin(t * 0.7 + seed.phase) * seed.sway,
@@ -292,14 +323,9 @@ function FallingPetals({ score }: { score: number }) {
       );
       dummy.scale.set(seed.size, seed.size * 0.28, seed.size * 0.7);
       dummy.updateMatrix();
-      mesh.current!.setMatrixAt(index, dummy.matrix);
-      color.set(seed.pink);
-      mesh.current!.setColorAt(index, color);
-    });
-    mesh.current.instanceMatrix.needsUpdate = true;
-    if (mesh.current.instanceColor) {
-      mesh.current.instanceColor.needsUpdate = true;
+      instanced.setMatrixAt(index, dummy.matrix);
     }
+    instanced.instanceMatrix.needsUpdate = true;
   });
 
   if (score < 0.08) return null;
@@ -358,6 +384,23 @@ function Tree({ score }: { score: number }) {
   );
 }
 
+/**
+ * In `demand` mode R3F only renders when something asks it to, so pump it at a
+ * low fixed rate to keep the tree drifting without holding a 60fps GPU loop
+ * open behind whatever the user is actually working in.
+ */
+function LowPowerTicker({ fps }: { fps: number }) {
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    invalidate();
+    const id = window.setInterval(invalidate, 1000 / fps);
+    return () => window.clearInterval(id);
+  }, [fps, invalidate]);
+
+  return null;
+}
+
 function Scene({ score }: { score: number }) {
   return (
     <>
@@ -393,16 +436,23 @@ function Scene({ score }: { score: number }) {
 
 export function SakuraScene({ score }: { score: number }) {
   const clamped = clampScore(score);
+  const activity = useWindowActivity();
+
+  // Tray/minimised stops the loop dead; unfocused drops to a trickle.
+  const frameloop =
+    activity === "hidden" ? "never" : activity === "background" ? "demand" : "always";
 
   return (
     <div className="absolute inset-0">
       <Canvas
         camera={{ position: [0.15, 1.35, 4.35], fov: 40 }}
-        dpr={[1, 1.75]}
+        dpr={[1, 1.5]}
+        frameloop={frameloop}
         gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
         style={{ background: "transparent" }}
       >
         <Scene score={clamped} />
+        {frameloop === "demand" ? <LowPowerTicker fps={BACKGROUND_FPS} /> : null}
       </Canvas>
     </div>
   );

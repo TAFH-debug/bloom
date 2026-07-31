@@ -1,7 +1,7 @@
 use tauri::{
   menu::{Menu, MenuItem},
   tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-  Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+  Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 
 mod activity;
@@ -23,18 +23,26 @@ fn activity_take_segments(tracker: State<'_, ActivityTracker>) -> Vec<ActivitySe
   tracker.take_segments()
 }
 
+/// Webview render budget signals. Hiding to tray does not reliably flip
+/// `document.visibilityState` inside WebView2, so the window state is pushed
+/// explicitly and the SPA parks its animation loops on it.
+const EVENT_VISIBLE: &str = "bloom://visible";
+const EVENT_FOCUSED: &str = "bloom://focused";
+
 fn show_main(app: &tauri::AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.set_skip_taskbar(false);
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
+    let _ = app.emit(EVENT_VISIBLE, true);
   }
 }
 
 fn hide_to_tray(window: &tauri::Window) {
   let _ = window.hide();
   let _ = window.set_skip_taskbar(true);
+  let _ = window.app_handle().emit(EVENT_VISIBLE, false);
 }
 
 const DESKTOP_INIT_SCRIPT: &str = r#"
@@ -64,12 +72,16 @@ pub fn run() {
     .on_page_load(|webview, _payload| {
       let _ = webview.eval(DESKTOP_INIT_SCRIPT);
     })
-    .on_window_event(|window, event| {
-      if let WindowEvent::CloseRequested { api, .. } = event {
+    .on_window_event(|window, event| match event {
+      WindowEvent::CloseRequested { api, .. } => {
         // Keep sampling / WS alive — X hides to tray; Quit exits for real.
         hide_to_tray(window);
         api.prevent_close();
       }
+      WindowEvent::Focused(focused) => {
+        let _ = window.app_handle().emit(EVENT_FOCUSED, *focused);
+      }
+      _ => {}
     })
     .setup(move |app| {
       if cfg!(debug_assertions) {
