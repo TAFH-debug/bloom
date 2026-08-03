@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
@@ -16,7 +17,8 @@ function GoogleMark({ className }: { className?: string }) {
 }
 
 export function GoogleAuthButton({ label }: { label: string }) {
-  const [pending, setPending] = useState(false);
+  const navigate = useNavigate();
+  const [phase, setPhase] = useState<"idle" | "starting">("idle");
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -24,21 +26,28 @@ export function GoogleAuthButton({ label }: { label: string }) {
       <Button
         type="button"
         variant="outline"
-        disabled={pending}
+        disabled={phase !== "idle"}
         className="w-full gap-2 border-rose-200/70 bg-white/80 hover:bg-white"
         onClick={async () => {
-          setPending(true);
+          setPhase("starting");
           setError(null);
           const result = await authClient.signIn.social();
-          setPending(false);
+          setPhase("idle");
           if (result.error) {
             setError(result.error.message);
+          } else {
+            navigate("/");
           }
         }}
       >
         <GoogleMark className="size-4" />
-        {pending ? "Redirecting…" : label}
+        {phase === "starting" ? "Opening browser…" : label}
       </Button>
+      {phase === "starting" ? (
+        <p className="text-center text-xs text-stone-400">
+          Complete sign-in in the browser, then return here.
+        </p>
+      ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
   );

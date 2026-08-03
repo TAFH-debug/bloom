@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     )
     google_client_id: str = ""
     google_client_secret: str = ""
+    google_redirect_uri: str = "http://127.0.0.1:8000/auth/google/callback"
     session_max_age_days: int = 30
 
     @property

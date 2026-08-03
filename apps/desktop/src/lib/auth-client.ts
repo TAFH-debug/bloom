@@ -1,4 +1,5 @@
 import { api, setToken } from "@/lib/api";
+import { signInWithGoogle } from "@/lib/google-oauth";
 
 export type AuthUser = {
   id: string;
@@ -78,11 +79,19 @@ export const authClient = {
         };
       }
     },
-    social: async () => ({
-      error: {
-        message: "Google sign-in is not available in the desktop API yet",
-      },
-    }),
+    social: async () => {
+      try {
+        const user = await signInWithGoogle();
+        return { error: null, data: user };
+      } catch (error) {
+        return {
+          error: {
+            message:
+              error instanceof Error ? error.message : "Could not sign in",
+          },
+        };
+      }
+    },
   },
   signOut: async () => {
     try {

@@ -25,6 +25,16 @@ class AuthResult(BaseModel):
     user: UserOut
     token: str
 
+class GoogleStartOut(BaseModel):
+    state: str
+    authorizationUrl: str
+
+class GoogleResult(BaseModel):
+    status: str
+    user: Optional[UserOut] = None
+    token: Optional[str] = None
+    message: Optional[str] = None
+
 
 # ── Habits ────────────────────────────────────────────────────────────
 
