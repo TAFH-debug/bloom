@@ -13,8 +13,7 @@ import hashlib
 import json
 import secrets
 import threading
-import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from urllib.parse import urlencode
 from uuid import uuid4
@@ -23,13 +22,15 @@ import httpx
 from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
-from app.models import Account, User
+from app.models import Account, User, Verification
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 
 PENDING_TTL_SECONDS = 600
+
+STATE_IDENTIFIER = "google"
 
 
 class OAuthError(Exception):
@@ -61,65 +62,73 @@ def _pkce_challenge(verifier: str) -> str:
 
 
 class PendingFlows:
-    """Short-lived in-memory registry of OAuth attempts keyed by `state`."""
+    """Pending OAuth attempts keyed by `state`, stored in Postgres.
+
+    Survives API restarts and works across multiple workers, unlike a
+    per-process dict. Each row lives in the `verification` table and is
+    dropped once the client picks up the result (or after it expires).
+    """
 
     def __init__(self, ttl_seconds: int = PENDING_TTL_SECONDS) -> None:
-        self._flows: dict[str, dict] = {}
-        self._lock = threading.Lock()
         self._ttl = ttl_seconds
+        self._lock = threading.Lock()
 
-    def create(self, state: str, code_verifier: str) -> None:
-        with self._lock:
-            self._flows[state] = {
-                "created_at": time.monotonic(),
-                "code_verifier": code_verifier,
-                "result": None,
-            }
-            self._sweep()
+    def _load(self, db: DbSession, state: str) -> Optional[Verification]:
+        row = (
+            db.query(Verification)
+            .filter(Verification.id == state, Verification.identifier == STATE_IDENTIFIER)
+            .first()
+        )
+        if row is None:
+            return None
+        if row.expires_at and datetime.utcnow() > row.expires_at:
+            db.delete(row)
+            return None
+        return row
 
-    def get(self, state: str) -> Optional[dict]:
+    def create(self, db: DbSession, state: str, code_verifier: str) -> None:
         with self._lock:
-            entry = self._flows.get(state)
-            if entry is None:
+            value = json.dumps({"code_verifier": code_verifier, "result": None})
+            db.merge(
+                Verification(
+                    id=state,
+                    identifier=STATE_IDENTIFIER,
+                    value=value,
+                    expires_at=datetime.utcnow() + timedelta(seconds=self._ttl),
+                )
+            )
+
+    def get(self, db: DbSession, state: str) -> Optional[dict]:
+        with self._lock:
+            row = self._load(db, state)
+            if row is None:
                 return None
-            if time.monotonic() - entry["created_at"] > self._ttl:
-                del self._flows[state]
-                return None
-            return entry
+            return json.loads(row.value)
 
-    def complete(self, state: str, payload: dict) -> None:
+    def complete(self, db: DbSession, state: str, payload: dict) -> None:
         with self._lock:
-            entry = self._flows.get(state)
-            if entry is not None:
-                entry["result"] = payload
+            row = self._load(db, state)
+            if row is None:
+                return
+            data = json.loads(row.value)
+            data["result"] = payload
+            row.value = json.dumps(data)
 
-    def take_result(self, state: str) -> Optional[dict]:
+    def take_result(self, db: DbSession, state: str) -> Optional[dict]:
         """Return the finished result once, then drop the flow."""
         with self._lock:
-            entry = self._flows.get(state)
-            if entry is None:
+            row = self._load(db, state)
+            if row is None:
                 return None
-            if time.monotonic() - entry["created_at"] > self._ttl:
-                del self._flows[state]
-                return None
-            result = entry["result"]
-            if result is not None:
-                del self._flows[state]
+            result = json.loads(row.value).get("result")
+            db.delete(row)
             return result
-
-    def _sweep(self) -> None:
-        now = time.monotonic()
-        expired = [
-            s for s, e in self._flows.items() if now - e["created_at"] > self._ttl
-        ]
-        for state in expired:
-            del self._flows[state]
 
 
 flows = PendingFlows()
 
 
-def build_authorization_url() -> tuple[str, str]:
+def build_authorization_url(db: DbSession) -> tuple[str, str]:
     """Create a pending flow and return (state, authorization_url)."""
     if not google_configured():
         raise OAuthError("Google sign-in is not configured on the server")
@@ -135,7 +144,7 @@ def build_authorization_url() -> tuple[str, str]:
         "code_challenge_method": "S256",
         "prompt": "select_account",
     }
-    flows.create(state, verifier)
+    flows.create(db, state, verifier)
     return state, f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
 
 

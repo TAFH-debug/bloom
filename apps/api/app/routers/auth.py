@@ -80,10 +80,10 @@ def me(user: User = Depends(get_current_user)):
 # ── Google OAuth ────────────────────────────────────────────────────────
 
 @router.post("/google/start", response_model=S.GoogleStartOut)
-def google_start():
+def google_start(db: DbSession = Depends(get_db)):
     """Begin a Google sign-in: returns the URL to open in a browser."""
     try:
-        state, url = oauth_svc.build_authorization_url()
+        state, url = oauth_svc.build_authorization_url(db)
     except oauth_svc.OAuthError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return S.GoogleStartOut(state=state, authorizationUrl=url)
@@ -97,7 +97,7 @@ async def google_callback(
     db: DbSession = Depends(get_db),
 ):
     """Google redirects the system browser here after consent."""
-    entry = oauth_svc.flows.get(state) if state is not None else None
+    entry = oauth_svc.flows.get(db, state) if state is not None else None
     if entry is None:
         return _callback_page(
             "This sign-in link is invalid or has expired.",
@@ -106,7 +106,7 @@ async def google_callback(
 
     if error is not None:
         oauth_svc.flows.complete(
-            state, {"status": "error", "message": "Google sign-in was cancelled."}
+            db, state, {"status": "error", "message": "Google sign-in was cancelled."}
         )
         return _callback_page(
             "Sign-in cancelled.", "You can close this window and return to Bloom."
@@ -114,7 +114,7 @@ async def google_callback(
 
     if not code:
         oauth_svc.flows.complete(
-            state, {"status": "error", "message": "Google did not return a code."}
+            db, state, {"status": "error", "message": "Google did not return a code."}
         )
         return _callback_page(
             "Something went wrong.", "Close this window and try again from Bloom."
@@ -127,20 +127,21 @@ async def google_callback(
         sess = auth_svc._create_session(db, user.id)
     except oauth_svc.OAuthError as exc:
         db.rollback()
-        oauth_svc.flows.complete(state, {"status": "error", "message": str(exc)})
+        oauth_svc.flows.complete(db, state, {"status": "error", "message": str(exc)})
         return _callback_page(
             "Sign-in failed.", "Close this window and try again from Bloom."
         )
     except IntegrityError as exc:
         db.rollback()
         oauth_svc.flows.complete(
-            state, {"status": "error", "message": "Could not create your account."}
+            db, state, {"status": "error", "message": "Could not create your account."}
         )
         return _callback_page(
             "Sign-in failed.", "Close this window and try again from Bloom."
         )
 
     oauth_svc.flows.complete(
+        db,
         state,
         {
             "status": "done",
@@ -154,10 +155,10 @@ async def google_callback(
 
 
 @router.get("/google/result", response_model=S.GoogleResult)
-def google_result(state: str):
+def google_result(state: str, db: DbSession = Depends(get_db)):
     """Polled by the app to pick up the finished sign-in."""
-    if oauth_svc.flows.get(state) is not None:
-        result = oauth_svc.flows.take_result(state)
+    if oauth_svc.flows.get(db, state) is not None:
+        result = oauth_svc.flows.take_result(db, state)
         if result is None:
             return S.GoogleResult(status="pending")
         return S.GoogleResult(**result)
